@@ -22,5 +22,5 @@ export default async function generateShorts(url, context) {
   await addAudioToVideo();
 
   deleteFile("./video.mp4");
-  deleteFile("./speech.wav");
+  deleteFile("./speech.mp3");
 }
