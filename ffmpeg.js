@@ -2,7 +2,7 @@ import { spawn } from "child_process";
 
 export default function addAudioToVideo() {
   return new Promise((resolve, reject) => {
-    const outputPath = "D:/Generated-Content/" + Date.now() + ".mp4";
+    const outputPath = "./" + Date.now() + ".mp4";
     const ffmpegArgs = [
       "-i",
       "video.mp4", // Input video
