@@ -74,11 +74,6 @@ npm start
 ## 🎯 Contribute
 Want to improve this project? Fork it, make changes, and submit a PR! Contributions are welcome! 🤝
 
----
-## 📞 Contact
-Have questions? Feel free to reach out:
-- **Twitter/X**: [@yourhandle](https://twitter.com/yourhandle)
-- **GitHub Issues**: Open an issue!
 
 ⚡ **Start creating viral YouTube Shorts now!** 🚀
 
