@@ -6,7 +6,7 @@ const elevenlabs = new ElevenLabsClient({
 
 import { writeFile } from "fs/promises";
 
-export async function generateAudio(text) {
+export default async function generateAudio(text) {
   const audio = await elevenlabs.generate({
     voice: "iiidtqDt9FBdT1vfBluA",
     text: text,
@@ -15,6 +15,4 @@ export async function generateAudio(text) {
   // Save the audio buffer as an MP3 file
   await writeFile("./speech.mp3", audio);
 }
-
- await generateAudio("Hello from Eleven Labs!");
 
