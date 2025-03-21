@@ -43,7 +43,7 @@ cd viral-shorts-creator
 ### 2️⃣ Install Dependencies
 ```sh
 npm install  # Install Node.js dependencies
-pip install yt_dlp  # Install Python dependencies
+pip install yt-dlp  # Install Python dependencies
 ```
 
 ### 3️⃣ Run the Script
