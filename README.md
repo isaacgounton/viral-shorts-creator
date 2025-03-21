@@ -13,8 +13,5 @@ Elevenlabs API Key as -> EL_KEY
 
 *Important notes You have to change the elevanlabs voice id because every accound voice id is diffrent
 
-<video width="640" height="360" controls>
-  <source src="./sample.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
+[![Watch on YouTube](https://img.youtube.com/vi/21G8IQM2-ZA/0.jpg)](https://www.youtube.com/shorts/21G8IQM2-ZA)
 
