@@ -2,7 +2,7 @@ import { spawn } from "child_process";
 
 export default function downloadVideo(url) {
   return new Promise((resolve, reject) => {
-    const pythonProcess = spawn("python", ["D:/YouTube/download.py", url]);
+    const pythonProcess = spawn("python", ["./download.py", url]);
 
     pythonProcess.stdout.on("data", (data) => {
       console.log(`Output: ${data}`);
