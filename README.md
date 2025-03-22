@@ -15,10 +15,15 @@ Before you start, make sure you have the following installed:
 ---
 ## 🌍 Environment Variables Setup
 Set up your API keys as environment variables:
-
+## Mac and Linux
 ```sh
 export GEMINI_API_KEY=your_gemini_api_key_here
 export EL_KEY=your_elevenlabs_api_key_here
+```
+## Windows
+```powershell
+setx GEMINI_API_KEY "your_gemini_api_key_here"
+setx EL_KEY "your_elevenlabs_api_key_here"
 ```
 
 > 📝 **Important:** Make sure to update the **ElevenLabs Voice ID** in `./util/speech.js`, as every account has a different voice ID!
@@ -36,7 +41,7 @@ export EL_KEY=your_elevenlabs_api_key_here
 
 ### 1️⃣ Clone the Repository
 ```sh
-git clone https://github.com/your-repo/viral-shorts-creator.git
+git clone https://github.com/riasatsk/viral-shorts-creator.git
 cd viral-shorts-creator
 ```
 
