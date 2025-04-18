@@ -58,7 +58,7 @@ npm start
 
 ---
 ## 🎬 Example Video
-[![Watch on YouTube](https://img.youtube.com/vi/21G8IQM2-ZA/0.jpg)](https://www.youtube.com/shorts/21G8IQM2-ZA)
+[![Watch on YouTube](https://img.youtube.com/vi/IT5baKwiqy0.jpg)](https://www.youtube.com/shorts/IT5baKwiqy0)
 
 ---
 ## 🔥 Why Use This?
