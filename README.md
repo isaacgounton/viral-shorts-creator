@@ -58,8 +58,7 @@ npm start
 
 ---
 ## 🎬 Example Video
-[![Watch on YouTube](https://img.youtube.com/vi/IT5baKwiqy0.jpg)](https://www.youtube.com/shorts/IT5baKwiqy0)
-
+[![Watch on YouTube](https://img.youtube.com/vi/IT5baKwiqy0/maxresdefault.jpg)](https://www.youtube.com/shorts/IT5baKwiqy0)
 ---
 ## 🔥 Why Use This?
 ✅ **Automates** the entire Shorts creation process 🚀
