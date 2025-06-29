@@ -147,18 +147,21 @@ Non-YouTube URLs are processed via yt-dlp (supports 1000+ sites including Vimeo,
 ## 🎯 Clip Analysis Features
 
 **Intelligent Video Analysis:**
+
 - **Audio Energy Analysis**: Detects high-energy speech, music, and sound patterns
 - **Scene Change Detection**: Identifies dynamic visual transitions and cuts
 - **Motion Analysis**: Measures movement and visual activity levels
 - **Composite Scoring**: Combines all metrics with customizable weights
 
 **Configurable Parameters:**
+
 - **Clip Duration**: 10-300 seconds (default: 60 seconds)
 - **Maximum Clips**: 1-20 clips returned (default: 10)
 - **Overlap**: Sliding window overlap in seconds (default: 30)
 - **Analysis Weights**: Customize audio/visual/motion importance
 
 **Smart Features:**
+
 - **Position-Based Scoring**: Boosts opening/closing segments and peak content areas
 - **Quality Labels**: Excellent/Good/Fair/Poor based on composite scores
 - **Human-Readable Reasons**: Explains why each clip scored well
@@ -167,17 +170,20 @@ Non-YouTube URLs are processed via yt-dlp (supports 1000+ sites including Vimeo,
 ## ⚡ Performance Optimizations
 
 **Intelligent Quality Management:**
+
 - Videos automatically limited to 1080p maximum resolution during download
 - Smart resolution scaling prevents processing of unnecessarily large files
 - FFmpeg encoding optimized for speed with social media quality standards
 
 **Processing Speed Improvements:**
+
 - **40-70% faster** processing for high-resolution input videos
 - Optimized encoding settings (`-preset fast`, `-crf 23`)
 - Bitrate limiting (2Mbps max) perfect for social media platforms
 - Stream copying where possible to avoid re-encoding
 
 **Quality Maintained:**
+
 - Output quality optimized for social media (TikTok, Instagram, YouTube Shorts)
 - No visible quality loss for target platforms
 - Faster file streaming with `+faststart` optimization
@@ -199,6 +205,7 @@ Non-YouTube URLs are processed via yt-dlp (supports 1000+ sites including Vimeo,
 ```
 
 ### Job Status Response (when completed)
+
 ```json
 {
   "jobId": "550e8400-e29b-41d4-a716-446655440000",
@@ -215,6 +222,7 @@ Non-YouTube URLs are processed via yt-dlp (supports 1000+ sites including Vimeo,
 ```
 
 ### Clip Analysis Response
+
 ```json
 {
   "success": true,
@@ -251,6 +259,7 @@ Non-YouTube URLs are processed via yt-dlp (supports 1000+ sites including Vimeo,
 ```
 
 ### Error Response
+
 ```json
 {
   "error": "Failed to generate shorts",

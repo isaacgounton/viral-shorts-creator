@@ -88,3 +88,7 @@ temp/
 # Uploaded files and downloads
 uploads/
 downloads/
+
+# Research/analysis directories
+youtube-repurpose-web/
+temp-analysis/
