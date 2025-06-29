@@ -7,7 +7,12 @@ RUN apk add --no-cache \
     ffmpeg \
     python3 \
     py3-pip \
-    && pip3 install yt-dlp
+    py3-cryptography \
+    && python3 -m venv /opt/venv \
+    && /opt/venv/bin/pip install yt-dlp
+
+# Add the virtual environment to PATH
+ENV PATH="/opt/venv/bin:$PATH"
 
 # Set the working directory in the container
 WORKDIR /app
