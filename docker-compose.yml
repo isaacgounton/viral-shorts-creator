@@ -1,9 +1,33 @@
 version: '3.8'
 
 services:
-  app:
+  viral-shorts-creator:
     build: .
     ports:
-      - "3000:3000" # Assuming your app runs on port 3000, change if needed
+      - "${PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - EDGE_TTS_URL=${EDGE_TTS_URL:-http://localhost:5050}
+      - EDGE_TTS_API_KEY=${EDGE_TTS_API_KEY}
     volumes:
-      - .:/app
+      - uploads:/app/uploads
+      - downloads:/app/downloads
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "npm", "run", "health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - viral-shorts-network
+
+volumes:
+  uploads:
+  downloads:
+
+networks:
+  viral-shorts-network:
+    driver: bridge

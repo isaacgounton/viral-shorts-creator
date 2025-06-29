@@ -8,11 +8,20 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node main.js"
+    "start": "node main.js",
+    "server": "node server.js",
+    "dev": "node --watch server.js",
+    "build": "echo \"No build step required\"",
+    "lint": "echo \"No linting configured\"",
+    "health": "curl -f http://localhost:3000/health || exit 1"
   },
   "dependencies": {
     "@google/generative-ai": "^0.22.0",
+    "cors": "^2.8.5",
     "dotenv": "^17.0.0",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "morgan": "^1.10.0",
     "music-metadata": "^11.0.0"
   }
 }
