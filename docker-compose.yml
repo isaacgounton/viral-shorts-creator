@@ -1,0 +1,9 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000" # Assuming your app runs on port 3000, change if needed
+    volumes:
+      - .:/app
