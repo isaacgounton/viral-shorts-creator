@@ -9,7 +9,7 @@ RUN apk add --no-cache \
     py3-pip \
     py3-cryptography \
     && python3 -m venv /opt/venv \
-    && /opt/venv/bin/pip install yt-dlp
+    && /opt/venv/bin/pip install yt-dlp requests
 
 # Add the virtual environment to PATH
 ENV PATH="/opt/venv/bin:$PATH"

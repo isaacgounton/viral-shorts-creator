@@ -15,6 +15,9 @@ async function main() {
       context = "context: " + context;
     }
 
+    // Cookies URL (optional)
+    const cookiesUrl = await rl.question("Cookies URL (optional, press Enter to skip): ");
+
     // Language detection and voice selection
     const languageInput = await rl.question("Language (e.g., en, es, fr, de, ja, or en-US): ");
     const detectedLanguage = detectLanguageFromCode(languageInput || 'en');
@@ -35,7 +38,7 @@ async function main() {
       const voiceChoice = await rl.question("Select voice number: ");
       const selectedVoice = englishVoices[parseInt(voiceChoice) - 1] || englishVoices[0];
       
-      await generateShorts(url, context, selectedVoice.name, 'en-US');
+      await generateShorts(url, context, selectedVoice.name, 'en-US', cookiesUrl || null);
     } else {
       console.log(`\nAvailable voices for ${detectedLanguage}:`);
       languageVoices.forEach((voice, index) => {
@@ -45,7 +48,7 @@ async function main() {
       const voiceChoice = await rl.question("Select voice number: ");
       const selectedVoice = languageVoices[parseInt(voiceChoice) - 1] || languageVoices[0];
       
-      await generateShorts(url, context, selectedVoice.name, detectedLanguage);
+      await generateShorts(url, context, selectedVoice.name, detectedLanguage, cookiesUrl || null);
     }
   } catch (err) {
     console.error("Error:", err);

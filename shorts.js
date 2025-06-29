@@ -7,25 +7,34 @@ import getAudioDuration from "./util/audio.js";
 import { generateContent } from "./util/gemini.js";
 import generateAudio from "./util/speech.js";
 
-export default async function generateShorts(url, context, voice = "en-US-AvaNeural", language = "en-US") {
-  await downloadVideo(url);
-  const upload = await uploadVideo("./video.mp4", "Video");
+export default async function generateShorts(url, context, voice = "en-US-AvaNeural", language = "en-US", cookiesUrl = null, jobId = null) {
+  const videoFile = jobId ? `./video_${jobId}.mp4` : "./video.mp4";
+  const audioFile = jobId ? `./speech_${jobId}.mp3` : "./speech.mp3";
+  const inputFile = jobId ? `./input_${jobId}.mp4` : "./input.mp4";
+  const outputFile = jobId ? `./output_${jobId}.mp4` : "./output.mp4";
+
+  await downloadVideo(url, cookiesUrl, jobId);
+  const upload = await uploadVideo(videoFile, "Video");
   const script = await generateContent(upload, context, language);
   
   const scriptData = JSON.parse(script);
   const fullText = scriptData["hook"] + " " + scriptData["script"];
   
-  await generateAudio(fullText, voice);
+  await generateAudio(fullText, voice, jobId);
   
-  const audioDuration = await getAudioDuration("./speech.mp3");
+  const audioDuration = await getAudioDuration(audioFile);
   console.log(`Audio duration: ${audioDuration} seconds`);
 
   // Add 1200ms (1.2 seconds) buffer after audio ends
   const totalVideoDuration = audioDuration + 1.2;
   
-  await editVideo(totalVideoDuration);
-  await addAudioToVideo();
+  await editVideo(totalVideoDuration, jobId);
+  await addAudioToVideo(jobId);
 
-  deleteFile("./video.mp4");
-  deleteFile("./speech.mp3");
+  // Clean up intermediate files but keep the final output
+  deleteFile(videoFile);
+  deleteFile(audioFile);
+  deleteFile(inputFile);
+
+  return outputFile;
 }

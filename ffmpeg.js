@@ -1,13 +1,16 @@
 import { spawn } from "child_process";
 
-export default function addAudioToVideo() {
+export default function addAudioToVideo(jobId = null) {
   return new Promise((resolve, reject) => {
-    const outputPath = "./" + Date.now() + ".mp4";
+    const videoFile = jobId ? `input_${jobId}.mp4` : "input.mp4";
+    const audioFile = jobId ? `speech_${jobId}.mp3` : "speech.mp3";
+    const outputPath = jobId ? `./output_${jobId}.mp4` : "./" + Date.now() + ".mp4";
+    
     const ffmpegArgs = [
       "-i",
-      "video.mp4", // Input video
+      videoFile, // Input video
       "-i",
-      "speech.mp3", // Input audio
+      audioFile, // Input audio
       "-filter_complex",
       "[0:a]volume=0.3[a0];[1:a]volume=1.5[a1];[a0][a1]amix=inputs=2:duration=first[a]",
       "-map",
@@ -18,6 +21,7 @@ export default function addAudioToVideo() {
       "copy",
       "-c:a",
       "aac",
+      "-y", // Overwrite output file
       outputPath,
     ];
     const ffmpegProcess = spawn("ffmpeg", ffmpegArgs);

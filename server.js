@@ -3,6 +3,9 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import path from 'path';
+import fs from 'fs';
+import { v4 as uuidv4 } from 'uuid';
 import generateShorts from './shorts.js';
 import { getAvailableVoices, detectLanguageFromCode, getVoicesForLanguage } from './util/voice-selector.js';
 
@@ -50,12 +53,15 @@ app.get('/api/voices', async (req, res) => {
 // Generate shorts endpoint
 app.post('/api/generate-shorts', async (req, res) => {
   try {
-    const { url, context = '', language = 'en', voice } = req.body;
+    const { url, context = '', language = 'en', voice, cookies_url, return_file = false } = req.body;
 
     // Validation
     if (!url) {
       return res.status(400).json({ error: 'URL is required' });
     }
+
+    // Generate unique job ID
+    const jobId = uuidv4();
 
     // Detect language and select voice
     const detectedLanguage = detectLanguageFromCode(language);
@@ -68,18 +74,39 @@ app.post('/api/generate-shorts', async (req, res) => {
       selectedVoice = languageVoices[0]?.name || 'en-US-AvaNeural';
     }
 
-    console.log(`Starting shorts generation for URL: ${url}`);
+    console.log(`Starting shorts generation for URL: ${url} (Job: ${jobId})`);
     console.log(`Language: ${detectedLanguage}, Voice: ${selectedVoice}`);
+    if (cookies_url) {
+      console.log(`Using cookies from: ${cookies_url}`);
+    }
 
     // Generate shorts (this is async and takes time)
-    await generateShorts(url, context ? `context: ${context}` : '', selectedVoice, detectedLanguage);
+    const outputFile = await generateShorts(url, context ? `context: ${context}` : '', selectedVoice, detectedLanguage, cookies_url, jobId);
 
-    res.json({ 
-      success: true, 
-      message: 'Shorts generated successfully',
-      language: detectedLanguage,
-      voice: selectedVoice
-    });
+    if (return_file && fs.existsSync(outputFile)) {
+      // Return the video file directly
+      res.setHeader('Content-Type', 'video/mp4');
+      res.setHeader('Content-Disposition', `attachment; filename="shorts_${jobId}.mp4"`);
+      res.sendFile(path.resolve(outputFile));
+      
+      // Clean up file after sending
+      setTimeout(() => {
+        try {
+          fs.unlinkSync(outputFile);
+        } catch (err) {
+          console.error('Error cleaning up file:', err);
+        }
+      }, 1000);
+    } else {
+      res.json({ 
+        success: true, 
+        message: 'Shorts generated successfully',
+        jobId: jobId,
+        downloadUrl: `/api/download/${jobId}`,
+        language: detectedLanguage,
+        voice: selectedVoice
+      });
+    }
 
   } catch (error) {
     console.error('Error generating shorts:', error);
@@ -87,6 +114,35 @@ app.post('/api/generate-shorts', async (req, res) => {
       error: 'Failed to generate shorts', 
       details: error.message 
     });
+  }
+});
+
+// Download generated video endpoint
+app.get('/api/download/:jobId', (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const outputFile = `./output_${jobId}.mp4`;
+
+    if (!fs.existsSync(outputFile)) {
+      return res.status(404).json({ error: 'Video not found or expired' });
+    }
+
+    res.setHeader('Content-Type', 'video/mp4');
+    res.setHeader('Content-Disposition', `attachment; filename="shorts_${jobId}.mp4"`);
+    res.sendFile(path.resolve(outputFile));
+
+    // Clean up file after sending
+    setTimeout(() => {
+      try {
+        fs.unlinkSync(outputFile);
+      } catch (err) {
+        console.error('Error cleaning up file:', err);
+      }
+    }, 1000);
+
+  } catch (error) {
+    console.error('Error downloading video:', error);
+    res.status(500).json({ error: 'Failed to download video' });
   }
 });
 

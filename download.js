@@ -1,8 +1,15 @@
 import { spawn } from "child_process";
 
-export default function downloadVideo(url) {
+export default function downloadVideo(url, cookiesUrl = null, jobId = null) {
   return new Promise((resolve, reject) => {
-    const pythonProcess = spawn("python", ["./download.py", url]);
+    const args = ["./download.py", url];
+    if (cookiesUrl) {
+      args.push(cookiesUrl);
+    }
+    if (jobId) {
+      args.push(jobId);
+    }
+    const pythonProcess = spawn("python", args);
 
     pythonProcess.stdout.on("data", (data) => {
       console.log(`Output: ${data}`);
