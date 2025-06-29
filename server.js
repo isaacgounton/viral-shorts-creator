@@ -9,6 +9,7 @@ import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import generateShorts from './shorts.js';
 import generateShortsFromVideo from './shorts-video.js';
+import generateClips, { generateMultipleClips, extractClip } from './generate-clips.js';
 import { getAvailableVoices, detectLanguageFromCode, getVoicesForLanguage } from './util/voice-selector.js';
 import { isDirectVideoUrl, handleVideoSource } from './util/video-handler.js';
 import { isYouTubeUrl } from './util/gemini.js';
@@ -305,6 +306,85 @@ app.post('/api/generate-shorts-upload', upload.single('video'), async (req, res)
   }
 });
 
+// Async job processing function for clip analysis
+async function processClipJobAsync(jobId) {
+  try {
+    updateJobStatus(jobId, JOB_STATUS.PROCESSING, { progress: 0 });
+    
+    const job = jobs.get(jobId);
+    const { url, clipDuration, maxClips, overlap, weights } = job.request;
+
+    console.log(`Starting async clip analysis for job ${jobId}`);
+    
+    const config = {
+      clipDuration,
+      maxClips, 
+      overlap,
+      audioWeight: weights.audio,
+      visualWeight: weights.visual,
+      motionWeight: weights.motion
+    };
+
+    // Generate clips using the source URL
+    const result = await generateClips(url, config, jobId);
+
+    if (result.success && result.clips) {
+      updateJobStatus(jobId, JOB_STATUS.COMPLETED, { 
+        progress: 100,
+        clips: result.clips,
+        totalClips: result.totalClips,
+        completedAt: new Date().toISOString()
+      });
+      console.log(`Clip analysis job ${jobId} completed with ${result.totalClips} clips`);
+    } else {
+      throw new Error('No clips generated');
+    }
+
+  } catch (error) {
+    console.error(`Clip analysis job ${jobId} failed:`, error);
+    updateJobStatus(jobId, JOB_STATUS.FAILED, { 
+      error: error.message,
+      failedAt: new Date().toISOString()
+    });
+  }
+}
+
+// Async job processing function for clip extraction
+async function processClipExtractionAsync(extractJobId, parentJob, clipIds) {
+  try {
+    updateJobStatus(extractJobId, JOB_STATUS.PROCESSING, { progress: 0 });
+    
+    console.log(`Starting clip extraction for job ${extractJobId}`);
+    
+    // Generate multiple clips based on selected IDs
+    const extractedClips = await generateMultipleClips(
+      parentJob.clips, 
+      parentJob.videoFile || `./video_${parentJob.id}.mp4`, 
+      clipIds, 
+      extractJobId
+    );
+
+    if (extractedClips && extractedClips.length > 0) {
+      updateJobStatus(extractJobId, JOB_STATUS.COMPLETED, { 
+        progress: 100,
+        extractedClips: extractedClips,
+        totalExtracted: extractedClips.length,
+        completedAt: new Date().toISOString()
+      });
+      console.log(`Clip extraction job ${extractJobId} completed with ${extractedClips.length} clips`);
+    } else {
+      throw new Error('No clips extracted');
+    }
+
+  } catch (error) {
+    console.error(`Clip extraction job ${extractJobId} failed:`, error);
+    updateJobStatus(extractJobId, JOB_STATUS.FAILED, { 
+      error: error.message,
+      failedAt: new Date().toISOString()
+    });
+  }
+}
+
 // Async job processing function for uploads
 async function processUploadJobAsync(jobId) {
   try {
@@ -470,6 +550,264 @@ app.get('/api/download/:jobId', (req, res) => {
   }
 });
 
+// Generate clips endpoint (async)
+app.post('/api/generate-clips', async (req, res) => {
+  try {
+    const { 
+      url, 
+      clipDuration = 60, 
+      maxClips = 10, 
+      overlap = 30,
+      weights = { audio: 0.4, visual: 0.3, motion: 0.3 }
+    } = req.body;
+
+    // Validation
+    if (!url) {
+      return res.status(400).json({ error: 'URL is required' });
+    }
+
+    if (clipDuration < 10 || clipDuration > 300) {
+      return res.status(400).json({ error: 'Clip duration must be between 10 and 300 seconds' });
+    }
+
+    if (maxClips < 1 || maxClips > 20) {
+      return res.status(400).json({ error: 'Max clips must be between 1 and 20' });
+    }
+
+    // Generate unique job ID
+    const jobId = uuidv4();
+
+    // Create job record
+    createJob(jobId, {
+      url,
+      clipDuration,
+      maxClips,
+      overlap,
+      weights,
+      type: 'clip-analysis'
+    });
+
+    console.log(`Created clip analysis job ${jobId} for URL: ${url}`);
+
+    // Return job ID immediately
+    res.json({ 
+      success: true, 
+      message: 'Clip analysis job created successfully',
+      jobId: jobId,
+      statusUrl: `/api/jobs/${jobId}/status`,
+      clipsUrl: `/api/jobs/${jobId}/clips`,
+      config: {
+        clipDuration,
+        maxClips,
+        overlap,
+        weights
+      }
+    });
+
+    // Process job asynchronously
+    processClipJobAsync(jobId);
+
+  } catch (error) {
+    console.error('Error creating clip analysis job:', error);
+    res.status(500).json({ 
+      error: 'Failed to create clip analysis job', 
+      details: error.message 
+    });
+  }
+});
+
+// Generate clips from uploaded video endpoint (async)
+app.post('/api/generate-clips-upload', upload.single('video'), async (req, res) => {
+  try {
+    const { 
+      clipDuration = 60, 
+      maxClips = 10, 
+      overlap = 30,
+      weights = { audio: 0.4, visual: 0.3, motion: 0.3 }
+    } = req.body;
+
+    // Validation
+    if (!req.file) {
+      return res.status(400).json({ error: 'Video file is required' });
+    }
+
+    if (clipDuration < 10 || clipDuration > 300) {
+      return res.status(400).json({ error: 'Clip duration must be between 10 and 300 seconds' });
+    }
+
+    if (maxClips < 1 || maxClips > 20) {
+      return res.status(400).json({ error: 'Max clips must be between 1 and 20' });
+    }
+
+    // Generate unique job ID
+    const jobId = uuidv4();
+
+    // Create job record
+    createJob(jobId, {
+      uploadedFile: req.file,
+      clipDuration,
+      maxClips,
+      overlap,
+      weights,
+      originalFilename: req.file.originalname,
+      type: 'clip-analysis-upload'
+    });
+
+    console.log(`Created clip analysis job ${jobId} for uploaded file: ${req.file.originalname}`);
+
+    // Return job ID immediately
+    res.json({ 
+      success: true, 
+      message: 'Clip analysis job created successfully for uploaded video',
+      jobId: jobId,
+      statusUrl: `/api/jobs/${jobId}/status`,
+      clipsUrl: `/api/jobs/${jobId}/clips`,
+      originalFilename: req.file.originalname,
+      config: {
+        clipDuration,
+        maxClips,
+        overlap,
+        weights
+      }
+    });
+
+    // Process job asynchronously
+    processClipJobAsync(jobId);
+
+  } catch (error) {
+    console.error('Error creating clip analysis upload job:', error);
+    res.status(500).json({ 
+      error: 'Failed to create clip analysis job for uploaded video', 
+      details: error.message 
+    });
+  }
+});
+
+// Get clips from analysis job
+app.get('/api/jobs/:jobId/clips', (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const job = jobs.get(jobId);
+
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    if (job.status !== JOB_STATUS.COMPLETED) {
+      return res.status(400).json({ 
+        error: 'Job not completed', 
+        status: job.status,
+        progress: job.progress || 0
+      });
+    }
+
+    if (!job.clips) {
+      return res.status(404).json({ error: 'No clips found for this job' });
+    }
+
+    res.json({
+      success: true,
+      jobId: job.id,
+      clips: job.clips,
+      totalClips: job.clips.length,
+      config: job.request
+    });
+
+  } catch (error) {
+    console.error('Error getting clips:', error);
+    res.status(500).json({ error: 'Failed to get clips' });
+  }
+});
+
+// Download specific clip
+app.get('/api/jobs/:jobId/clips/:clipId/download', (req, res) => {
+  try {
+    const { jobId, clipId } = req.params;
+    const job = jobs.get(jobId);
+
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    if (job.status !== JOB_STATUS.COMPLETED) {
+      return res.status(400).json({ 
+        error: 'Job not completed', 
+        status: job.status 
+      });
+    }
+
+    const clip = job.extractedClips?.find(c => c.id === clipId);
+    if (!clip || !fs.existsSync(clip.filePath)) {
+      return res.status(404).json({ error: 'Clip not found or expired' });
+    }
+
+    res.setHeader('Content-Type', 'video/mp4');
+    res.setHeader('Content-Disposition', `attachment; filename="clip_${clipId}.mp4"`);
+    res.sendFile(path.resolve(clip.filePath));
+
+  } catch (error) {
+    console.error('Error downloading clip:', error);
+    res.status(500).json({ error: 'Failed to download clip' });
+  }
+});
+
+// Extract and download multiple clips
+app.post('/api/jobs/:jobId/extract-clips', async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const { clipIds } = req.body;
+    const job = jobs.get(jobId);
+
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    if (job.status !== JOB_STATUS.COMPLETED) {
+      return res.status(400).json({ 
+        error: 'Job not completed', 
+        status: job.status 
+      });
+    }
+
+    if (!job.clips) {
+      return res.status(404).json({ error: 'No clips found for this job' });
+    }
+
+    // Validation
+    if (!clipIds || !Array.isArray(clipIds) || clipIds.length === 0) {
+      return res.status(400).json({ error: 'clipIds array is required' });
+    }
+
+    // Create extraction job
+    const extractJobId = uuidv4();
+    createJob(extractJobId, {
+      parentJobId: jobId,
+      clipIds,
+      type: 'clip-extraction'
+    });
+
+    // Return extraction job ID immediately
+    res.json({ 
+      success: true, 
+      message: 'Clip extraction job created successfully',
+      extractJobId: extractJobId,
+      statusUrl: `/api/jobs/${extractJobId}/status`,
+      downloadUrl: `/api/jobs/${extractJobId}/download-clips`,
+      selectedClips: clipIds.length
+    });
+
+    // Process extraction asynchronously
+    processClipExtractionAsync(extractJobId, job, clipIds);
+
+  } catch (error) {
+    console.error('Error creating clip extraction job:', error);
+    res.status(500).json({ 
+      error: 'Failed to create clip extraction job', 
+      details: error.message 
+    });
+  }
+});
+
 // Status endpoint for monitoring
 app.get('/api/status', (req, res) => {
   res.json({
@@ -502,8 +840,12 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🎤 Voices API: http://localhost:${PORT}/api/voices`);
   console.log(`🎬 Generate shorts (URL): POST http://localhost:${PORT}/api/generate-shorts`);
   console.log(`🎬 Generate shorts (Upload): POST http://localhost:${PORT}/api/generate-shorts-upload`);
+  console.log(`🎯 Generate clips (URL): POST http://localhost:${PORT}/api/generate-clips`);
+  console.log(`🎯 Generate clips (Upload): POST http://localhost:${PORT}/api/generate-clips-upload`);
   console.log(`📋 Job status: GET http://localhost:${PORT}/api/jobs/:jobId/status`);
+  console.log(`🎞️  Get clips: GET http://localhost:${PORT}/api/jobs/:jobId/clips`);
   console.log(`📥 Download videos: GET http://localhost:${PORT}/api/jobs/:jobId/download`);
+  console.log(`📥 Download clips: GET http://localhost:${PORT}/api/jobs/:jobId/clips/:clipId/download`);
   console.log(`📥 Legacy download: GET http://localhost:${PORT}/api/download/:jobId`);
 });
 

@@ -76,6 +76,55 @@ Choose the aspect ratio that fits your target social media platform:
 }
 ```
 
+## Generate Clips from URL (Intelligent Analysis)
+
+### Analyze video and find best clips
+```bash
+curl -X POST http://localhost:3000/api/generate-clips \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "clipDuration": 60,
+    "maxClips": 10,
+    "overlap": 30,
+    "weights": {
+      "audio": 0.4,
+      "visual": 0.3,
+      "motion": 0.3
+    }
+  }'
+```
+
+**Features**: Analyzes video using audio energy, scene changes, and motion detection to find the most engaging clips.
+
+### Upload video for clip analysis
+```bash
+curl -X POST http://localhost:3000/api/generate-clips-upload \
+  -F "video=@/path/to/your/video.mp4" \
+  -F "clipDuration=90" \
+  -F "maxClips=5" \
+  -F "overlap=45"
+```
+
+### Get analyzed clips
+```bash
+curl http://localhost:3000/api/jobs/{jobId}/clips
+```
+
+### Download specific clip
+```bash
+curl -O http://localhost:3000/api/jobs/{jobId}/clips/{clipId}/download
+```
+
+### Extract and download multiple clips
+```bash
+curl -X POST http://localhost:3000/api/jobs/{jobId}/extract-clips \
+  -H "Content-Type: application/json" \
+  -d '{
+    "clipIds": ["clip_30_90", "clip_120_180", "clip_240_300"]
+  }'
+```
+
 ## Supported Input Sources
 
 ### YouTube URLs (Optimized Processing)
@@ -94,6 +143,26 @@ All video formats supported by FFmpeg are automatically converted to MP4.
 
 ### Other Video Platforms
 Non-YouTube URLs are processed via yt-dlp (supports 1000+ sites including Vimeo, TikTok, Instagram, etc.)
+
+## 🎯 Clip Analysis Features
+
+**Intelligent Video Analysis:**
+- **Audio Energy Analysis**: Detects high-energy speech, music, and sound patterns
+- **Scene Change Detection**: Identifies dynamic visual transitions and cuts
+- **Motion Analysis**: Measures movement and visual activity levels
+- **Composite Scoring**: Combines all metrics with customizable weights
+
+**Configurable Parameters:**
+- **Clip Duration**: 10-300 seconds (default: 60 seconds)
+- **Maximum Clips**: 1-20 clips returned (default: 10)
+- **Overlap**: Sliding window overlap in seconds (default: 30)
+- **Analysis Weights**: Customize audio/visual/motion importance
+
+**Smart Features:**
+- **Position-Based Scoring**: Boosts opening/closing segments and peak content areas
+- **Quality Labels**: Excellent/Good/Fair/Poor based on composite scores
+- **Human-Readable Reasons**: Explains why each clip scored well
+- **Ranked Results**: Clips sorted by engagement potential
 
 ## ⚡ Performance Optimizations
 
@@ -142,6 +211,42 @@ Non-YouTube URLs are processed via yt-dlp (supports 1000+ sites including Vimeo,
   "videoUrl": "/api/jobs/550e8400-e29b-41d4-a716-446655440000/download",
   "hook": "Would you risk it all to save a life?",
   "script": "This selfless man jumped into a pond to save a drowning toddler without hesitation..."
+}
+```
+
+### Clip Analysis Response
+```json
+{
+  "success": true,
+  "jobId": "550e8400-e29b-41d4-a716-446655440000",
+  "clips": [
+    {
+      "id": "clip_30_90",
+      "start": 30.5,
+      "end": 90.5,
+      "duration": 60,
+      "score": 0.85,
+      "scoreLabel": "Excellent",
+      "rank": 1,
+      "metrics": {
+        "audioEnergy": 0.82,
+        "sceneChanges": 0.74,
+        "motionLevel": 0.91
+      },
+      "reasons": ["High audio energy", "Dynamic scene changes", "High motion content", "Peak content area"]
+    }
+  ],
+  "totalClips": 10,
+  "config": {
+    "clipDuration": 60,
+    "maxClips": 10,
+    "overlap": 30,
+    "weights": {
+      "audio": 0.4,
+      "visual": 0.3,
+      "motion": 0.3
+    }
+  }
 }
 ```
 
