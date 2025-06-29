@@ -3,12 +3,13 @@ import { spawn } from "child_process";
 export default function downloadVideo(url, cookiesUrl = null, jobId = null) {
   return new Promise((resolve, reject) => {
     const args = ["./download.py", url];
-    if (cookiesUrl) {
-      args.push(cookiesUrl);
-    }
+    
+    // Always pass cookies_url (or empty string) and job_id to maintain order
+    args.push(cookiesUrl || "");
     if (jobId) {
       args.push(jobId);
     }
+    
     const pythonProcess = spawn("python", args);
 
     pythonProcess.stdout.on("data", (data) => {

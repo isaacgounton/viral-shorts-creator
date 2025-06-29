@@ -50,6 +50,7 @@ if __name__ == "__main__":
         print("Usage: python download_video.py <video_url> [cookies_url] [job_id]")
     else:
         video_url = sys.argv[1]
-        cookies_url = sys.argv[2] if len(sys.argv) > 2 else None
+        cookies_url = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2] else None
         job_id = sys.argv[3] if len(sys.argv) > 3 else None
+        
         download_video(video_url, cookies_url, job_id)
