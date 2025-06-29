@@ -120,14 +120,25 @@ app.get('/api/voices', async (req, res) => {
   }
 });
 
-// Generate shorts from URL endpoint (async)
-app.post('/api/generate-shorts', async (req, res) => {
+// Generate shorts endpoint (unified for URL and upload)
+app.post('/api/generate-shorts', upload.single('video'), async (req, res) => {
   try {
-    const { url, context = '', language = 'en', voice, cookies_url, format = 'portrait' } = req.body;
+    const { 
+      video_url, 
+      context = '', 
+      language = 'en', 
+      voice, 
+      cookies_url, 
+      format = 'portrait' 
+    } = req.body;
 
-    // Validation
-    if (!url) {
-      return res.status(400).json({ error: 'URL is required' });
+    // Validation - must have either video_url or uploaded file
+    if (!video_url && !req.file) {
+      return res.status(400).json({ error: 'Either video_url or video file is required' });
+    }
+
+    if (video_url && req.file) {
+      return res.status(400).json({ error: 'Provide either video_url or video file, not both' });
     }
 
     // Generate unique job ID
@@ -153,16 +164,26 @@ app.post('/api/generate-shorts', async (req, res) => {
     }
 
     // Create job record
-    createJob(jobId, {
-      url,
+    const jobData = {
       context,
       language: detectedLanguage,
       voice: selectedVoice,
       cookies_url,
-      format
-    });
+      format,
+      type: 'shorts-generation'
+    };
 
-    console.log(`Created job ${jobId} for URL: ${url}`);
+    if (video_url) {
+      jobData.video_url = video_url;
+      console.log(`Created shorts job ${jobId} for URL: ${video_url}`);
+    } else {
+      jobData.uploadedFile = req.file;
+      jobData.originalFilename = req.file.originalname;
+      console.log(`Created shorts job ${jobId} for uploaded file: ${req.file.originalname}`);
+    }
+
+    createJob(jobId, jobData);
+
     console.log(`Language: ${detectedLanguage}, Voice: ${selectedVoice}, Format: ${format}`);
     if (cookies_url) {
       console.log(`Using cookies from: ${cookies_url}`);
@@ -198,22 +219,32 @@ async function processJobAsync(jobId) {
     updateJobStatus(jobId, JOB_STATUS.PROCESSING, { progress: 0 });
     
     const job = jobs.get(jobId);
-    const { url, context, language, voice, cookies_url, format } = job.request;
+    const { video_url, uploadedFile, context, language, voice, cookies_url, format } = job.request;
 
     console.log(`Starting async processing for job ${jobId}`);
     
     // Determine video source type and handle accordingly
     let outputFile;
-    if (isDirectVideoUrl(url)) {
+    
+    if (uploadedFile) {
+      // Handle uploaded file
+      console.log(`Processing uploaded file for job ${jobId}...`);
+      updateJobStatus(jobId, JOB_STATUS.PROCESSING, { progress: 25 });
+      await handleVideoSource(uploadedFile, 'upload', null, jobId);
+      updateJobStatus(jobId, JOB_STATUS.PROCESSING, { progress: 50 });
+      outputFile = await generateShortsFromVideo(context ? `context: ${context}` : '', voice, language, jobId, format);
+    } else if (isDirectVideoUrl(video_url)) {
+      // Handle direct video URL
       console.log(`Processing direct video URL for job ${jobId}...`);
       updateJobStatus(jobId, JOB_STATUS.PROCESSING, { progress: 25 });
-      await handleVideoSource(url, 'direct_url', null, jobId);
+      await handleVideoSource(video_url, 'direct_url', null, jobId);
       updateJobStatus(jobId, JOB_STATUS.PROCESSING, { progress: 50 });
       outputFile = await generateShortsFromVideo(context ? `context: ${context}` : '', voice, language, jobId, format);
     } else {
-      console.log(`Processing ${isYouTubeUrl(url) ? 'YouTube' : 'yt-dlp compatible'} URL for job ${jobId}...`);
+      // Handle YouTube or yt-dlp compatible URL
+      console.log(`Processing ${isYouTubeUrl(video_url) ? 'YouTube' : 'yt-dlp compatible'} URL for job ${jobId}...`);
       updateJobStatus(jobId, JOB_STATUS.PROCESSING, { progress: 25 });
-      outputFile = await generateShorts(url, context ? `context: ${context}` : '', voice, language, cookies_url, jobId, format);
+      outputFile = await generateShorts(video_url, context ? `context: ${context}` : '', voice, language, cookies_url, jobId, format);
     }
 
     if (outputFile && fs.existsSync(outputFile)) {
@@ -236,75 +267,6 @@ async function processJobAsync(jobId) {
   }
 }
 
-// Generate shorts from uploaded video endpoint (async)
-app.post('/api/generate-shorts-upload', upload.single('video'), async (req, res) => {
-  try {
-    const { context = '', language = 'en', voice, format = 'portrait' } = req.body;
-
-    // Validation
-    if (!req.file) {
-      return res.status(400).json({ error: 'Video file is required' });
-    }
-
-    // Generate unique job ID
-    const jobId = uuidv4();
-
-    // Validate format
-    const validFormats = ['portrait', 'landscape', 'square'];
-    if (!validFormats.includes(format)) {
-      return res.status(400).json({ 
-        error: 'Invalid format. Must be one of: portrait, landscape, square' 
-      });
-    }
-
-    // Detect language and select voice
-    const detectedLanguage = detectLanguageFromCode(language);
-    let selectedVoice = voice;
-
-    if (!selectedVoice) {
-      // Default voice selection based on language
-      const voices = await getAvailableVoices();
-      const languageVoices = getVoicesForLanguage(voices, detectedLanguage);
-      selectedVoice = languageVoices[0]?.name || 'en-US-AvaNeural';
-    }
-
-    // Create job record
-    createJob(jobId, {
-      uploadedFile: req.file,
-      context,
-      language: detectedLanguage,
-      voice: selectedVoice,
-      originalFilename: req.file.originalname,
-      format
-    });
-
-    console.log(`Created job ${jobId} for uploaded file: ${req.file.originalname}`);
-    console.log(`Language: ${detectedLanguage}, Voice: ${selectedVoice}, Format: ${format}`);
-
-    // Return job ID immediately
-    res.json({ 
-      success: true, 
-      message: 'Job created successfully for uploaded video',
-      jobId: jobId,
-      statusUrl: `/api/jobs/${jobId}/status`,
-      downloadUrl: `/api/jobs/${jobId}/download`,
-      language: detectedLanguage,
-      voice: selectedVoice,
-      originalFilename: req.file.originalname,
-      format: format
-    });
-
-    // Process job asynchronously
-    processUploadJobAsync(jobId);
-
-  } catch (error) {
-    console.error('Error creating upload job:', error);
-    res.status(500).json({ 
-      error: 'Failed to create job for uploaded video', 
-      details: error.message 
-    });
-  }
-});
 
 // Async job processing function for clip analysis
 async function processClipJobAsync(jobId) {
@@ -312,7 +274,7 @@ async function processClipJobAsync(jobId) {
     updateJobStatus(jobId, JOB_STATUS.PROCESSING, { progress: 0 });
     
     const job = jobs.get(jobId);
-    const { url, clipDuration, maxClips, overlap, weights } = job.request;
+    const { video_url, uploadedFile, clipDuration, maxClips, overlap, weights, cookies_url } = job.request;
 
     console.log(`Starting async clip analysis for job ${jobId}`);
     
@@ -325,8 +287,20 @@ async function processClipJobAsync(jobId) {
       motionWeight: weights.motion
     };
 
-    // Generate clips using the source URL
-    const result = await generateClips(url, config, jobId);
+    // Generate clips using the appropriate source
+    let source;
+    if (uploadedFile) {
+      source = uploadedFile;
+      console.log(`Analyzing uploaded file: ${uploadedFile.originalname}`);
+    } else {
+      source = video_url;
+      console.log(`Analyzing video URL: ${video_url}`);
+      if (cookies_url) {
+        console.log(`Using cookies from: ${cookies_url}`);
+      }
+    }
+
+    const result = await generateClips(source, config, jobId, cookies_url);
 
     if (result.success && result.clips) {
       updateJobStatus(jobId, JOB_STATUS.COMPLETED, { 
@@ -385,45 +359,6 @@ async function processClipExtractionAsync(extractJobId, parentJob, clipIds) {
   }
 }
 
-// Async job processing function for uploads
-async function processUploadJobAsync(jobId) {
-  try {
-    updateJobStatus(jobId, JOB_STATUS.PROCESSING, { progress: 0 });
-    
-    const job = jobs.get(jobId);
-    const { uploadedFile, context, language, voice, format } = job.request;
-
-    console.log(`Starting async processing for upload job ${jobId}`);
-    
-    updateJobStatus(jobId, JOB_STATUS.PROCESSING, { progress: 25 });
-    
-    // Handle uploaded video
-    await handleVideoSource(uploadedFile, 'upload', null, jobId);
-    
-    updateJobStatus(jobId, JOB_STATUS.PROCESSING, { progress: 50 });
-    
-    // Generate shorts from the processed video
-    const outputFile = await generateShortsFromVideo(context ? `context: ${context}` : '', voice, language, jobId, format);
-
-    if (outputFile && fs.existsSync(outputFile)) {
-      updateJobStatus(jobId, JOB_STATUS.COMPLETED, { 
-        progress: 100,
-        outputFile: outputFile,
-        completedAt: new Date().toISOString()
-      });
-      console.log(`Upload job ${jobId} completed successfully`);
-    } else {
-      throw new Error('Output file not generated');
-    }
-
-  } catch (error) {
-    console.error(`Upload job ${jobId} failed:`, error);
-    updateJobStatus(jobId, JOB_STATUS.FAILED, { 
-      error: error.message,
-      failedAt: new Date().toISOString()
-    });
-  }
-}
 
 // Job status endpoint
 app.get('/api/jobs/:jobId/status', (req, res) => {
@@ -550,20 +485,25 @@ app.get('/api/download/:jobId', (req, res) => {
   }
 });
 
-// Generate clips endpoint (async)
-app.post('/api/generate-clips', async (req, res) => {
+// Generate clips endpoint (unified for URL and upload)
+app.post('/api/generate-clips', upload.single('video'), async (req, res) => {
   try {
     const { 
-      url, 
+      video_url,
+      cookies_url,
       clipDuration = 60, 
       maxClips = 10, 
       overlap = 30,
       weights = { audio: 0.4, visual: 0.3, motion: 0.3 }
     } = req.body;
 
-    // Validation
-    if (!url) {
-      return res.status(400).json({ error: 'URL is required' });
+    // Validation - must have either video_url or uploaded file
+    if (!video_url && !req.file) {
+      return res.status(400).json({ error: 'Either video_url or video file is required' });
+    }
+
+    if (video_url && req.file) {
+      return res.status(400).json({ error: 'Provide either video_url or video file, not both' });
     }
 
     if (clipDuration < 10 || clipDuration > 300) {
@@ -578,16 +518,25 @@ app.post('/api/generate-clips', async (req, res) => {
     const jobId = uuidv4();
 
     // Create job record
-    createJob(jobId, {
-      url,
+    const jobData = {
       clipDuration,
       maxClips,
       overlap,
       weights,
+      cookies_url,
       type: 'clip-analysis'
-    });
+    };
 
-    console.log(`Created clip analysis job ${jobId} for URL: ${url}`);
+    if (video_url) {
+      jobData.video_url = video_url;
+      console.log(`Created clip analysis job ${jobId} for URL: ${video_url}`);
+    } else {
+      jobData.uploadedFile = req.file;
+      jobData.originalFilename = req.file.originalname;
+      console.log(`Created clip analysis job ${jobId} for uploaded file: ${req.file.originalname}`);
+    }
+
+    createJob(jobId, jobData);
 
     // Return job ID immediately
     res.json({ 
@@ -616,72 +565,6 @@ app.post('/api/generate-clips', async (req, res) => {
   }
 });
 
-// Generate clips from uploaded video endpoint (async)
-app.post('/api/generate-clips-upload', upload.single('video'), async (req, res) => {
-  try {
-    const { 
-      clipDuration = 60, 
-      maxClips = 10, 
-      overlap = 30,
-      weights = { audio: 0.4, visual: 0.3, motion: 0.3 }
-    } = req.body;
-
-    // Validation
-    if (!req.file) {
-      return res.status(400).json({ error: 'Video file is required' });
-    }
-
-    if (clipDuration < 10 || clipDuration > 300) {
-      return res.status(400).json({ error: 'Clip duration must be between 10 and 300 seconds' });
-    }
-
-    if (maxClips < 1 || maxClips > 20) {
-      return res.status(400).json({ error: 'Max clips must be between 1 and 20' });
-    }
-
-    // Generate unique job ID
-    const jobId = uuidv4();
-
-    // Create job record
-    createJob(jobId, {
-      uploadedFile: req.file,
-      clipDuration,
-      maxClips,
-      overlap,
-      weights,
-      originalFilename: req.file.originalname,
-      type: 'clip-analysis-upload'
-    });
-
-    console.log(`Created clip analysis job ${jobId} for uploaded file: ${req.file.originalname}`);
-
-    // Return job ID immediately
-    res.json({ 
-      success: true, 
-      message: 'Clip analysis job created successfully for uploaded video',
-      jobId: jobId,
-      statusUrl: `/api/jobs/${jobId}/status`,
-      clipsUrl: `/api/jobs/${jobId}/clips`,
-      originalFilename: req.file.originalname,
-      config: {
-        clipDuration,
-        maxClips,
-        overlap,
-        weights
-      }
-    });
-
-    // Process job asynchronously
-    processClipJobAsync(jobId);
-
-  } catch (error) {
-    console.error('Error creating clip analysis upload job:', error);
-    res.status(500).json({ 
-      error: 'Failed to create clip analysis job for uploaded video', 
-      details: error.message 
-    });
-  }
-});
 
 // Get clips from analysis job
 app.get('/api/jobs/:jobId/clips', (req, res) => {
@@ -838,10 +721,8 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Viral Shorts Creator API running on port ${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
   console.log(`🎤 Voices API: http://localhost:${PORT}/api/voices`);
-  console.log(`🎬 Generate shorts (URL): POST http://localhost:${PORT}/api/generate-shorts`);
-  console.log(`🎬 Generate shorts (Upload): POST http://localhost:${PORT}/api/generate-shorts-upload`);
-  console.log(`🎯 Generate clips (URL): POST http://localhost:${PORT}/api/generate-clips`);
-  console.log(`🎯 Generate clips (Upload): POST http://localhost:${PORT}/api/generate-clips-upload`);
+  console.log(`🎬 Generate shorts: POST http://localhost:${PORT}/api/generate-shorts`);
+  console.log(`🎯 Generate clips: POST http://localhost:${PORT}/api/generate-clips`);
   console.log(`📋 Job status: GET http://localhost:${PORT}/api/jobs/:jobId/status`);
   console.log(`🎞️  Get clips: GET http://localhost:${PORT}/api/jobs/:jobId/clips`);
   console.log(`📥 Download videos: GET http://localhost:${PORT}/api/jobs/:jobId/download`);

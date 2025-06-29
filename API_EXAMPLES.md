@@ -1,44 +1,34 @@
 # API Examples
 
-## Generate Shorts from URL
+## Generate Shorts (Unified Endpoint)
 
-### YouTube URLs (Optimized Processing)
+### From URL
+
 ```bash
 curl -X POST http://localhost:3000/api/generate-shorts \
   -H "Content-Type: application/json" \
   -d '{
-    "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "video_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
     "context": "Viral content for social media",
     "language": "en",
     "voice": "en-US-AvaNeural",
+    "cookies_url": "",
     "format": "portrait"
   }'
 ```
 
-**⚡ Smart Processing**: YouTube URLs automatically attempt direct processing via Gemini's video understanding API first (faster), with automatic fallback to download method for reliability.
+### From File Upload
 
-### Direct Video URLs (.mp4, .webm, etc.)
 ```bash
 curl -X POST http://localhost:3000/api/generate-shorts \
-  -H "Content-Type: application/json" \
-  -d '{
-    "url": "https://example.com/video.mp4",
-    "context": "Transform this video into viral content",
-    "language": "en",
-    "format": "landscape"
-  }'
-```
-
-## Generate Shorts from Uploaded Video
-
-```bash
-curl -X POST http://localhost:3000/api/generate-shorts-upload \
   -F "video=@/path/to/your/video.mp4" \
   -F "context=Create engaging short content" \
   -F "language=en" \
   -F "voice=en-US-AvaNeural" \
   -F "format=square"
 ```
+
+**⚡ Smart Processing**: YouTube URLs automatically attempt direct processing via Gemini's video understanding API first (faster), with automatic fallback to download method for reliability.
 
 ## Get Available Voices
 
@@ -76,14 +66,16 @@ Choose the aspect ratio that fits your target social media platform:
 }
 ```
 
-## Generate Clips from URL (Intelligent Analysis)
+## Generate Clips (Intelligent Analysis)
 
-### Analyze video and find best clips
+### Analyze video from URL
+
 ```bash
 curl -X POST http://localhost:3000/api/generate-clips \
   -H "Content-Type: application/json" \
   -d '{
-    "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "video_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "cookies_url": "",
     "clipDuration": 60,
     "maxClips": 10,
     "overlap": 30,
@@ -95,16 +87,17 @@ curl -X POST http://localhost:3000/api/generate-clips \
   }'
 ```
 
-**Features**: Analyzes video using audio energy, scene changes, and motion detection to find the most engaging clips.
+### Analyze uploaded video
 
-### Upload video for clip analysis
 ```bash
-curl -X POST http://localhost:3000/api/generate-clips-upload \
+curl -X POST http://localhost:3000/api/generate-clips \
   -F "video=@/path/to/your/video.mp4" \
   -F "clipDuration=90" \
   -F "maxClips=5" \
   -F "overlap=45"
 ```
+
+**Features**: Analyzes video using audio energy, scene changes, and motion detection to find the most engaging clips. Use `cookies_url` parameter for YouTube videos that require authentication.
 
 ### Get analyzed clips
 ```bash

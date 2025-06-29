@@ -5,12 +5,13 @@ import { updateJobStatus } from './server.js';
 
 /**
  * Generate clip candidates from video source
- * @param {string} source - Video URL or file path
+ * @param {string|Object} source - Video URL, file path, or uploaded file object
  * @param {Object} config - Analysis configuration
  * @param {string} jobId - Job tracking ID
+ * @param {string} cookiesUrl - URL for cookies (for YouTube access)
  * @returns {Array} Array of clip candidates
  */
-export default async function generateClips(source, config = {}, jobId = null) {
+export default async function generateClips(source, config = {}, jobId = null, cookiesUrl = null) {
   const videoFile = jobId ? `./video_${jobId}.mp4` : './video.mp4';
   
   try {
@@ -27,14 +28,14 @@ export default async function generateClips(source, config = {}, jobId = null) {
     if (typeof source === 'string') {
       // URL source
       if (isDirectVideoUrl(source)) {
-        await handleVideoSource(source, 'direct_url', null, jobId);
+        await handleVideoSource(source, 'direct_url', cookiesUrl, jobId);
       } else {
         // YouTube or yt-dlp compatible URL
-        await downloadVideo(source, null, jobId);
+        await downloadVideo(source, cookiesUrl, jobId);
       }
     } else {
       // Uploaded file
-      await handleVideoSource(source, 'upload', null, jobId);
+      await handleVideoSource(source, 'upload', cookiesUrl, jobId);
     }
 
     if (jobId) {
