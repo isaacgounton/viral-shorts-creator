@@ -10,7 +10,7 @@ Before you start, make sure you have the following installed:
 - **Python** 🐍 + `yt_dlp` 📥
 - **FFMPEG** 🎬
 - **Gemini API Key** 🔑 (For generating video scripts)
-- **ElevenLabs API Key** 🎤 (For high-quality voice generation)
+- **OpenAI Edge TTS** 🎤 (Free high-quality voice generation using Microsoft Edge)
 
 ---
 ## 🌍 Environment Variables Setup
@@ -18,21 +18,23 @@ Set up your API keys as environment variables:
 ## Mac and Linux
 ```sh
 export GEMINI_API_KEY=your_gemini_api_key_here
-export EL_KEY=your_elevenlabs_api_key_here
+export EDGE_TTS_URL=http://localhost:5050
+export EDGE_TTS_API_KEY=your_api_key_here
 ```
 ## Windows
 ```powershell
 setx GEMINI_API_KEY "your_gemini_api_key_here"
-setx EL_KEY "your_elevenlabs_api_key_here"
+setx EDGE_TTS_URL "http://localhost:5050"
+setx EDGE_TTS_API_KEY "your_api_key_here"
 ```
 
-> 📝 **Important:** Make sure to update the **ElevenLabs Voice ID** in `./util/speech.js`, as every account has a different voice ID!
+> 📝 **Important:** Make sure to start the OpenAI Edge TTS server before running the shorts creator!
 
 ---
 ## 🚀 How It Works
 1️⃣ Fetch trending content from **Reddit, X (Twitter), and YouTube** 📊
 2️⃣ Generate a **script** using **Gemini AI** ✍️
-3️⃣ Convert the script into a **voiceover** using **ElevenLabs** 🎙️
+3️⃣ Convert the script into a **voiceover** using **OpenAI Edge TTS** 🎙️
 4️⃣ Merge voiceover with visuals using **FFMPEG** 🎞️
 5️⃣ **Boom!** Your **viral-ready YouTube Shorts** is created! ⚡
 
@@ -51,7 +53,13 @@ npm install  # Install Node.js dependencies
 pip install yt-dlp  # Install Python dependencies
 ```
 
-### 3️⃣ Run the Script
+### 3️⃣ Start OpenAI Edge TTS Server
+```sh
+cd openai-edge-tts
+docker compose up -d  # Start the TTS server in the background
+```
+
+### 4️⃣ Run the Script
 ```sh
 npm start
 ```
@@ -63,7 +71,7 @@ npm start
 ## 🔥 Why Use This?
 ✅ **Automates** the entire Shorts creation process 🚀
 ✅ Uses **AI** to generate scripts 📜
-✅ High-quality **voiceover generation** with ElevenLabs 🎙️
+✅ **Free** high-quality **voiceover generation** with OpenAI Edge TTS 🎙️
 ✅ Fetches **real-time trending content** 📈
 ✅ **Fast & efficient** - Save hours of editing! ⏳
 

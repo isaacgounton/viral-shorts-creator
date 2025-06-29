@@ -1,12 +1,15 @@
 import { spawn } from "child_process";
 
-export function editVideo(time) {
+export function editVideo(duration) {
   return new Promise((resolve, reject) => {
     const ffmpeg = spawn("ffmpeg", [
       "-i",
       "video.mp4",
+      "-t",
+      duration.toString(), // Trim video to exact duration (audio + 1.2s)
       "-af",
-      `volume=0.1:enable='between(t,0,${time})',volume=0.7:enable='gt(t,${time})'`,
+      `volume=0.1`, // Keep original video audio low throughout
+      "-y", // Overwrite output file
       "input.mp4",
     ]);
 

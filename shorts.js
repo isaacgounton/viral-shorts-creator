@@ -7,18 +7,23 @@ import getAudioDuration from "./util/audio.js";
 import { generateContent } from "./util/gemini.js";
 import generateAudio from "./util/speech.js";
 
-export default async function generateShorts(url, context) {
+export default async function generateShorts(url, context, voice = "en-US-AvaNeural", language = "en-US") {
   await downloadVideo(url);
   const upload = await uploadVideo("./video.mp4", "Video");
-  const script = await generateContent(upload, context);
-  await generateAudio(
-    JSON.parse(script)["hook"] + JSON.parse(script)["script"]
-  );
-  // const audioDuration = await getAudioDuration("./speech.wav");
+  const script = await generateContent(upload, context, language);
+  
+  const scriptData = JSON.parse(script);
+  const fullText = scriptData["hook"] + " " + scriptData["script"];
+  
+  await generateAudio(fullText, voice);
+  
+  const audioDuration = await getAudioDuration("./speech.mp3");
+  console.log(`Audio duration: ${audioDuration} seconds`);
 
-  // await editVideo(audioDuration);
-  // await editAudio();
-
+  // Add 1200ms (1.2 seconds) buffer after audio ends
+  const totalVideoDuration = audioDuration + 1.2;
+  
+  await editVideo(totalVideoDuration);
   await addAudioToVideo();
 
   deleteFile("./video.mp4");

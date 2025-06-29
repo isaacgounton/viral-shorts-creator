@@ -4,7 +4,7 @@ const apiKey = process.env.GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(apiKey);
 
 const generationConfig = {
-  temperature: 1,
+  temperature: 0.9,
   topP: 0.95,
   topK: 40,
   maxOutputTokens: 8192,
@@ -23,14 +23,68 @@ const generationConfig = {
   },
 };
 
+function getSystemInstruction(language) {
+  const languageNames = {
+    'en-US': 'English',
+    'es-ES': 'Spanish',
+    'fr-FR': 'French',
+    'de-DE': 'German',
+    'it-IT': 'Italian',
+    'pt-PT': 'Portuguese',
+    'pt-BR': 'Portuguese (Brazilian)',
+    'ja-JP': 'Japanese',
+    'ko-KR': 'Korean',
+    'zh-CN': 'Chinese (Simplified)',
+    'zh-TW': 'Chinese (Traditional)',
+    'ar-SA': 'Arabic',
+    'ru-RU': 'Russian',
+    'hi-IN': 'Hindi',
+    'nl-NL': 'Dutch',
+    'sv-SE': 'Swedish',
+    'nb-NO': 'Norwegian',
+  };
+
+  const languageName = languageNames[language] || 'English';
+  
+  return `You are a creative and engaging viral content scriptwriter specializing in creating captivating short-form video content. Your task is to analyze the provided video and generate an exciting, attention-grabbing script in ${languageName}.
+
+**CRITICAL REQUIREMENTS:**
+• **Language**: Write EVERYTHING in ${languageName}. Use natural, native expressions and cultural references appropriate for ${languageName} speakers.
+• **Hook Strategy**: Create an irresistible opening that makes viewers STOP scrolling. Use power words, questions, or shocking statements.
+• **Storytelling**: Craft a narrative arc that builds tension, reveals surprises, and delivers satisfying payoffs.
+• **Viral Elements**: Include elements that encourage sharing - relatable moments, "wait for it" scenarios, or mind-blowing reveals.
+• **Emotional Connection**: Tap into emotions - humor, amazement, suspense, or relatability.
+• **Pacing**: Structure for rapid consumption with quick transitions and high-energy delivery.
+
+**CONTENT FOCUS:**
+• **Extract the WOW factor**: What makes this video shareable? Focus on the most compelling 30-60 seconds.
+• **Create anticipation**: Use phrases that build suspense and keep viewers watching.
+• **Add personality**: Include reactions, commentary, and insights that add value beyond just describing what happens.
+• **Call-to-action**: End with something that encourages engagement or leaves viewers wanting more.
+
+**TONE & STYLE:**
+• Conversational and enthusiastic
+• Use current slang and expressions appropriate for the language/culture
+• Create urgency and excitement
+• Be authentic and relatable
+
+**STRUCTURE:**
+• **Hook** (3-5 seconds): Grab attention immediately
+• **Script** (20-45 seconds): Tell the story with energy and personality
+
+Make it impossible to scroll past!`;
+}
+
 const model = genAI.getGenerativeModel({
   model: "gemini-2.0-flash",
   generationConfig: generationConfig,
-  systemInstruction:
-    "You are a creative and detail-oriented scriptwriter. Your task is to analyze the provided video (or its transcript) and generate an engaging, concise summary that captures the unique and bizarre elements of the video. Your output will serve as a script for video shorts, so focus on the following:\n\n• **Overview:** Provide a clear description of the main actions and events.\n• **Highlights:** Emphasize any unusual, surprising, or humorous moments.\n• **Tone:** Keep the language energetic, engaging, and suitable for short-form content.\n• **Brevity:** Be concise while ensuring the viewer understands what makes the video interesting.\n• **Audience Hook:** Include a captivating hook at the beginning to grab the viewer’s attention.\n\nMake sure your script clearly outlines what is happening in the video and why it’s worth watching.\n",
 });
 
-export async function generateContent(uploadResponse, context = "") {
+export async function generateContent(uploadResponse, context = "", language = "en-US") {
+  const systemInstruction = getSystemInstruction(language);
+  
+  const prompt = `${systemInstruction}\n\n${context ? `Additional context: ${context}\n\n` : ''}Analyze this video and create a viral short-form script.`;
+  
   const result = await model.generateContent([
     {
       fileData: {
@@ -38,7 +92,7 @@ export async function generateContent(uploadResponse, context = "") {
         fileUri: uploadResponse.file.uri,
       },
     },
-    { text: context },
+    { text: prompt },
   ]);
   return result.response.text();
 }
