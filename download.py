@@ -7,12 +7,17 @@ import requests
 def download_video(video_url, cookies_url=None, job_id=None):
     filename = f'video_{job_id}' if job_id else 'video'
     ydl_opts = {
-        'format': 'bestvideo+bestaudio/best',  # Select best video and audio quality
+        # Optimize format selection for faster processing - limit to 1080p max
+        'format': 'bestvideo[height<=1080]+bestaudio/best[height<=1080]',
         'outtmpl': filename,         # Use the video title for the filename
         'postprocessors': [{
             'key': 'FFmpegVideoConvertor',
             'preferedformat': 'mp4',            # Convert to mp4 format
         }],
+        # Additional optimizations for speed
+        'writesubtitles': False,     # Skip subtitle download for speed
+        'writeautomaticsub': False,  # Skip auto-generated subtitles
+        'writethumbnail': False,     # Skip thumbnail download
     }
     
     # Handle cookies if provided

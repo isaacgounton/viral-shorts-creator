@@ -80,6 +80,14 @@ const model = genAI.getGenerativeModel({
   generationConfig: generationConfig,
 });
 
+// Helper function to detect YouTube URLs
+function isYouTubeUrl(url) {
+  const youtubePatterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/|m\.youtube\.com\/watch\?v=)/i
+  ];
+  return youtubePatterns.some(pattern => pattern.test(url));
+}
+
 export async function generateContent(uploadResponse, context = "", language = "en-US") {
   const systemInstruction = getSystemInstruction(language);
   
@@ -96,3 +104,22 @@ export async function generateContent(uploadResponse, context = "", language = "
   ]);
   return result.response.text();
 }
+
+// New function for direct YouTube URL processing
+export async function generateContentFromYouTubeUrl(youtubeUrl, context = "", language = "en-US") {
+  const systemInstruction = getSystemInstruction(language);
+  
+  const prompt = `${systemInstruction}\n\n${context ? `Additional context: ${context}\n\n` : ''}Analyze this video and create a viral short-form script.`;
+  
+  const result = await model.generateContent([
+    {
+      fileData: {
+        fileUri: youtubeUrl,
+      },
+    },
+    { text: prompt },
+  ]);
+  return result.response.text();
+}
+
+export { isYouTubeUrl };

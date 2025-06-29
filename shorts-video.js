@@ -8,7 +8,7 @@ import { generateContent } from "./util/gemini.js";
 import generateAudio from "./util/speech.js";
 import { updateJobStatus } from "./server.js";
 
-export default async function generateShortsFromVideo(context, voice = "en-US-AvaNeural", language = "en-US", jobId = null) {
+export default async function generateShortsFromVideo(context, voice = "en-US-AvaNeural", language = "en-US", jobId = null, format = 'portrait') {
   const videoFile = jobId ? `./video_${jobId}.mp4` : "./video.mp4";
   const audioFile = jobId ? `./speech_${jobId}.mp3` : "./speech.mp3";
   const inputFile = jobId ? `./input_${jobId}.mp4` : "./input.mp4";
@@ -42,7 +42,7 @@ export default async function generateShortsFromVideo(context, voice = "en-US-Av
   // Add 1200ms (1.2 seconds) buffer after audio ends
   const totalVideoDuration = audioDuration + 1.2;
   
-  await editVideo(totalVideoDuration, jobId);
+  await editVideo(totalVideoDuration, jobId, format);
   await addAudioToVideo(jobId);
 
   // Clean up intermediate files but keep the final output

@@ -11,6 +11,7 @@ import generateShorts from './shorts.js';
 import generateShortsFromVideo from './shorts-video.js';
 import { getAvailableVoices, detectLanguageFromCode, getVoicesForLanguage } from './util/voice-selector.js';
 import { isDirectVideoUrl, handleVideoSource } from './util/video-handler.js';
+import { isYouTubeUrl } from './util/gemini.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -121,7 +122,7 @@ app.get('/api/voices', async (req, res) => {
 // Generate shorts from URL endpoint (async)
 app.post('/api/generate-shorts', async (req, res) => {
   try {
-    const { url, context = '', language = 'en', voice, cookies_url } = req.body;
+    const { url, context = '', language = 'en', voice, cookies_url, format = 'portrait' } = req.body;
 
     // Validation
     if (!url) {
@@ -142,17 +143,26 @@ app.post('/api/generate-shorts', async (req, res) => {
       selectedVoice = languageVoices[0]?.name || 'en-US-AvaNeural';
     }
 
+    // Validate format
+    const validFormats = ['portrait', 'landscape', 'square'];
+    if (!validFormats.includes(format)) {
+      return res.status(400).json({ 
+        error: 'Invalid format. Must be one of: portrait, landscape, square' 
+      });
+    }
+
     // Create job record
     createJob(jobId, {
       url,
       context,
       language: detectedLanguage,
       voice: selectedVoice,
-      cookies_url
+      cookies_url,
+      format
     });
 
     console.log(`Created job ${jobId} for URL: ${url}`);
-    console.log(`Language: ${detectedLanguage}, Voice: ${selectedVoice}`);
+    console.log(`Language: ${detectedLanguage}, Voice: ${selectedVoice}, Format: ${format}`);
     if (cookies_url) {
       console.log(`Using cookies from: ${cookies_url}`);
     }
@@ -165,7 +175,8 @@ app.post('/api/generate-shorts', async (req, res) => {
       statusUrl: `/api/jobs/${jobId}/status`,
       downloadUrl: `/api/jobs/${jobId}/download`,
       language: detectedLanguage,
-      voice: selectedVoice
+      voice: selectedVoice,
+      format: format
     });
 
     // Process job asynchronously
@@ -186,7 +197,7 @@ async function processJobAsync(jobId) {
     updateJobStatus(jobId, JOB_STATUS.PROCESSING, { progress: 0 });
     
     const job = jobs.get(jobId);
-    const { url, context, language, voice, cookies_url } = job.request;
+    const { url, context, language, voice, cookies_url, format } = job.request;
 
     console.log(`Starting async processing for job ${jobId}`);
     
@@ -197,11 +208,11 @@ async function processJobAsync(jobId) {
       updateJobStatus(jobId, JOB_STATUS.PROCESSING, { progress: 25 });
       await handleVideoSource(url, 'direct_url', null, jobId);
       updateJobStatus(jobId, JOB_STATUS.PROCESSING, { progress: 50 });
-      outputFile = await generateShortsFromVideo(context ? `context: ${context}` : '', voice, language, jobId);
+      outputFile = await generateShortsFromVideo(context ? `context: ${context}` : '', voice, language, jobId, format);
     } else {
-      console.log(`Processing YouTube/yt-dlp compatible URL for job ${jobId}...`);
+      console.log(`Processing ${isYouTubeUrl(url) ? 'YouTube' : 'yt-dlp compatible'} URL for job ${jobId}...`);
       updateJobStatus(jobId, JOB_STATUS.PROCESSING, { progress: 25 });
-      outputFile = await generateShorts(url, context ? `context: ${context}` : '', voice, language, cookies_url, jobId);
+      outputFile = await generateShorts(url, context ? `context: ${context}` : '', voice, language, cookies_url, jobId, format);
     }
 
     if (outputFile && fs.existsSync(outputFile)) {
@@ -227,7 +238,7 @@ async function processJobAsync(jobId) {
 // Generate shorts from uploaded video endpoint (async)
 app.post('/api/generate-shorts-upload', upload.single('video'), async (req, res) => {
   try {
-    const { context = '', language = 'en', voice } = req.body;
+    const { context = '', language = 'en', voice, format = 'portrait' } = req.body;
 
     // Validation
     if (!req.file) {
@@ -236,6 +247,14 @@ app.post('/api/generate-shorts-upload', upload.single('video'), async (req, res)
 
     // Generate unique job ID
     const jobId = uuidv4();
+
+    // Validate format
+    const validFormats = ['portrait', 'landscape', 'square'];
+    if (!validFormats.includes(format)) {
+      return res.status(400).json({ 
+        error: 'Invalid format. Must be one of: portrait, landscape, square' 
+      });
+    }
 
     // Detect language and select voice
     const detectedLanguage = detectLanguageFromCode(language);
@@ -254,11 +273,12 @@ app.post('/api/generate-shorts-upload', upload.single('video'), async (req, res)
       context,
       language: detectedLanguage,
       voice: selectedVoice,
-      originalFilename: req.file.originalname
+      originalFilename: req.file.originalname,
+      format
     });
 
     console.log(`Created job ${jobId} for uploaded file: ${req.file.originalname}`);
-    console.log(`Language: ${detectedLanguage}, Voice: ${selectedVoice}`);
+    console.log(`Language: ${detectedLanguage}, Voice: ${selectedVoice}, Format: ${format}`);
 
     // Return job ID immediately
     res.json({ 
@@ -269,7 +289,8 @@ app.post('/api/generate-shorts-upload', upload.single('video'), async (req, res)
       downloadUrl: `/api/jobs/${jobId}/download`,
       language: detectedLanguage,
       voice: selectedVoice,
-      originalFilename: req.file.originalname
+      originalFilename: req.file.originalname,
+      format: format
     });
 
     // Process job asynchronously
@@ -290,7 +311,7 @@ async function processUploadJobAsync(jobId) {
     updateJobStatus(jobId, JOB_STATUS.PROCESSING, { progress: 0 });
     
     const job = jobs.get(jobId);
-    const { uploadedFile, context, language, voice } = job.request;
+    const { uploadedFile, context, language, voice, format } = job.request;
 
     console.log(`Starting async processing for upload job ${jobId}`);
     
@@ -302,7 +323,7 @@ async function processUploadJobAsync(jobId) {
     updateJobStatus(jobId, JOB_STATUS.PROCESSING, { progress: 50 });
     
     // Generate shorts from the processed video
-    const outputFile = await generateShortsFromVideo(context ? `context: ${context}` : '', voice, language, jobId);
+    const outputFile = await generateShortsFromVideo(context ? `context: ${context}` : '', voice, language, jobId, format);
 
     if (outputFile && fs.existsSync(outputFile)) {
       updateJobStatus(jobId, JOB_STATUS.COMPLETED, { 

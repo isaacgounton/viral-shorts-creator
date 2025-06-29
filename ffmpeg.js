@@ -18,9 +18,12 @@ export default function addAudioToVideo(jobId = null) {
       "-map",
       "[a]",
       "-c:v",
-      "copy",
+      "copy", // Copy video stream (no re-encoding for speed)
       "-c:a",
       "aac",
+      "-b:a", "128k", // Optimize audio bitrate for social media
+      "-movflags", "+faststart", // Optimize for web streaming
+      "-avoid_negative_ts", "make_zero", // Fix potential timestamp issues
       "-y", // Overwrite output file
       outputPath,
     ];
