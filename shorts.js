@@ -6,6 +6,7 @@ import { uploadVideo } from "./upload.js";
 import getAudioDuration from "./util/audio.js";
 import { generateContent } from "./util/gemini.js";
 import generateAudio from "./util/speech.js";
+import { updateJobStatus } from "./server.js";
 
 export default async function generateShorts(url, context, voice = "en-US-AvaNeural", language = "en-US", cookiesUrl = null, jobId = null) {
   const videoFile = jobId ? `./video_${jobId}.mp4` : "./video.mp4";
@@ -19,6 +20,15 @@ export default async function generateShorts(url, context, voice = "en-US-AvaNeu
   
   const scriptData = JSON.parse(script);
   const fullText = scriptData["hook"] + " " + scriptData["script"];
+  
+  // Store hook and script data in job status if jobId is provided
+  if (jobId) {
+    updateJobStatus(jobId, "processing", {
+      progress: 40,
+      hook: scriptData["hook"],
+      script: scriptData["script"]
+    });
+  }
   
   await generateAudio(fullText, voice, jobId);
   

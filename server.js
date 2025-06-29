@@ -357,6 +357,15 @@ app.get('/api/jobs/:jobId/status', (req, res) => {
     // Add download URL if completed
     if (job.status === JOB_STATUS.COMPLETED) {
       response.downloadUrl = `/api/jobs/${jobId}/download`;
+      response.videoUrl = `/api/jobs/${jobId}/download`;
+      
+      // Add hook and script if available
+      if (job.hook) {
+        response.hook = job.hook;
+      }
+      if (job.script) {
+        response.script = job.script;
+      }
     }
 
     res.json(response);
@@ -478,3 +487,4 @@ app.listen(PORT, '0.0.0.0', () => {
 });
 
 export default app;
+export { updateJobStatus };
